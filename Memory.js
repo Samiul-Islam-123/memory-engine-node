@@ -4,19 +4,20 @@ const WorkingMemory = require("./StorageProvider/WorkingMemory");
 
 class MemoryEngine{
 
-    constructor(base_model_config, embedding_model_config, analyzer_model_config , storagePath) {
+    constructor(base_model_config, embedding_model_config, analyzer_model_config= base_model_config , storagePath) {
         if (!base_model_config || !embedding_model_config || !analyzer_model_config) {
             throw new Error("[MemoryEngine] Missing model configurations. Ensure base_model, embedding_model, and analyzer_model configs are provided.");
         }
 
         this.base_model_config = base_model_config,
         this.embedding_model_config = embedding_model_config;
-        this.analyzer_model_config = analyzer_model_config;
+        this.analyzer_model_config = analyzer_model_config ;
 
         this.llm = new LLMProvider({
            model : this.base_model_config.model,
            provider : this.base_model_config.provider,
-           apiKey : this.base_model_config.apiKey
+           apiKey : this.base_model_config.apiKey,
+           baseURL : this.base_model_config.baseURL
         });
 
         this.working_mem = new WorkingMemory({

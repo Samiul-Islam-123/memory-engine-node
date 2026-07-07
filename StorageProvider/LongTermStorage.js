@@ -437,7 +437,6 @@ ${conversation.model}
             memories: existingMemories.memories
         });
 
-        // console.log(similarMemories)
 
         return similarMemories.map(result => {
 

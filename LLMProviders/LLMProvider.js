@@ -1,29 +1,26 @@
 const AnthropicProvider = require("./AnthropicProvider");
 const GeminiProvider = require("./GeminiProvider");
+const OllamaProvider = require("./OllamaProvider");
 const OpenAIProvider = require("./OpenAIProvider");
 
 const PROVIDERS = {
     openai: OpenAIProvider,
     google: GeminiProvider,
-    anthropic: AnthropicProvider
+    anthropic: AnthropicProvider,
+    ollama: OllamaProvider
 };
 
 class LLMProvider {
 
-    constructor({ model, provider, apiKey }) {
+    constructor(config) {
 
-
-        const Provider = PROVIDERS[provider];
+        const Provider = PROVIDERS[config.provider];
 
         if (!Provider) {
-            throw new Error(`Unsupported provider: ${provider}`);
+            throw new Error(`Unsupported provider: ${config.provider}`);
         }
 
-        this.llm = new Provider({
-            model,
-            apiKey
-        });
-
+        this.llm = new Provider(config);
     }
 
     async generate(prompt, systemPrompt) {

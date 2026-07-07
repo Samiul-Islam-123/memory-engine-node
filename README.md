@@ -7,7 +7,7 @@ A powerful, plug-and-play dual-memory system for building highly personalized, s
 
 ---
 
-## The Problem: AI Amnesia 🛑
+## The Challenge: Persistent Context
 
 Building a basic chatbot with LLMs (like OpenAI, Google, or Anthropic) is incredibly easy today. However, **making that AI remember the user** across multiple sessions is notoriously difficult. 
 
@@ -19,7 +19,7 @@ To build a truly personalized AI, developers typically have to waste weeks wrest
 
 This creates massive overhead, drives up token costs, and delays your launch.
 
-## The Solution: Memory Engine ✅
+## The Solution: Memory Engine
 
 **Memory Engine** solves this by abstracting the entire memory architecture into a single, easy-to-use package. You simply pass in three models (Base Chat, Embedding, and Analyzer), and the engine automatically handles the rest out of the box.
 
@@ -43,11 +43,19 @@ Memory Engine is perfect for applications that require long-term context and dee
 
 - **Automated Dual-Memory Management:** Intelligently balances short-term context with long-term recall.
 - **Zero Vector DB Required:** Uses a highly optimized local storage and vector math engine under the hood. No external database setup needed.
-- **Multi-Provider Support:** Seamlessly integrates with three major AI providers:
+- **Multi-Provider Support:** Seamlessly integrates with major AI providers:
   - Google (Gemini)
   - OpenAI (GPT)
   - Anthropic (Claude)
+  - Ollama (Local Models)
 - **Production Ready:** Built-in error handling and graceful fallbacks ensure your chat never crashes even if background analysis fails.
+
+---
+
+### ⚠️ Crucial Project Constraint: The Embedding Model
+While you can freely change your **Base Chat Model** or **Analyzer Model** at any time during a project, **your Embedding Model must remain the exact same throughout the lifecycle of your project.**
+
+If you change the embedding model after memories have been stored, the engine will fail to retrieve older memories because the new embeddings will live in a completely different mathematical space. Choose your embedding model carefully when you start!
 
 ---
 
@@ -59,61 +67,167 @@ npm install memory-engine-node
 
 ---
 
-## Quick Start (Tutorial)
+## Comprehensive Tutorial: Build a Chatbot with Express and HTML
 
-Here is a basic example of how to use the `MemoryEngine`. 
+In this tutorial, we will build a complete, working web-based chatbot using Node.js, Express, and a basic HTML/CSS/JS frontend. The `MemoryEngine` will handle persistent memory seamlessly under the hood.
 
-You need to provide configurations for three distinct models:
-1. **Base Chat Model**: Handles the main conversational responses.
-2. **Embedding Model**: Used for storing and retrieving long-term memories.
-3. **Memory Analyzer Model**: Analyzes conversations in the background to extract and store important facts.
+### Prerequisites & Setup
+
+1. Initialize a new Node project and install dependencies:
+```bash
+npm init -y
+npm install express memory-engine-node
+```
+*(Make sure you have your API keys ready, or Ollama running locally if you prefer).*
+
+### 1. The Backend (`server.js`)
+
+Create a `server.js` file. We will configure our `MemoryEngine` here. Remember, you can use `ollama`, `openai`, `google`, or `anthropic` as your provider.
 
 ```javascript
-const MemoryEngine = require("memory-engine-node");
+const express = require('express');
+const MemoryEngine = require('memory-engine-node');
+const path = require('path');
 
-async function main() {
-    // 1. Initialize the Memory Engine
-    const mem = new MemoryEngine(
-        {
-            // Base chat model
-            model: "gemini-3.1-flash-lite", // e.g., gpt-4o for openai, claude-3-5-sonnet-20240620 for anthropic
-            provider: "google",             // 'google', 'openai', or 'anthropic'
-            apiKey: "YOUR_API_KEY"
-        },
-        {
-            // Embedding model
-            model: "gemini-embedding-2",
-            provider: "google",
-            apiKey: "YOUR_API_KEY"
-        },
-        {
-            // Analyzer model
-            model: "gemini-2.5-flash",
-            provider: "google",
-            apiKey: "YOUR_API_KEY"
-        },
-        "./memory-data" // Directory path to locally store long-term memory files
-    );
+const app = express();
+const port = 3000;
 
-    // 2. Chat with the engine
+app.use(express.json());
+app.use(express.static('public')); // Serve frontend files
+
+// 1. Initialize the Memory Engine
+const mem = new MemoryEngine(
+    {
+        // Base chat model (Can be changed later)
+        model: "gemini-3.1-flash-lite", // or e.g. "llama3" for ollama
+        provider: "google",             // 'google', 'openai', 'anthropic', or 'ollama'
+        apiKey: "YOUR_API_KEY"          // Leave empty if using local ollama
+    },
+    {
+        // Embedding model (CRITICAL: MUST NOT BE CHANGED THROUGHOUT THE PROJECT)
+        model: "gemini-embedding-2",    // e.g. 'nomic-embed-text' for ollama
+        provider: "google",
+        apiKey: "YOUR_API_KEY"
+    },
+    {
+        // Analyzer model (Can be changed later)
+        model: "gemini-2.5-flash",
+        provider: "google",
+        apiKey: "YOUR_API_KEY"
+    },
+    "./memory-data" // Local directory for storing memories
+);
+
+// 2. Expose a Chat API Endpoint
+app.post('/api/chat', async (req, res) => {
     try {
-        console.log("Starting conversation...");
+        const userMessage = req.body.message;
+        if (!userMessage) return res.status(400).json({ error: "Message is required" });
         
-        const response1 = await mem.chat("Hi, my name is Alex and I'm currently learning React!");
-        console.log("🤖 Model:", response1);
-
-        // Imagine this is a completely new session days later...
-        // The model will dynamically retrieve your name and interests from its Long-Term Vector Memory!
-        const response2 = await mem.chat("Do you remember my name and what I am studying?");
-        console.log("🤖 Model:", response2);
-
+        // Let the Memory Engine handle retrieval, analysis, and response generation!
+        const response = await mem.chat(userMessage);
+        
+        res.json({ reply: response });
     } catch (error) {
-        console.error("An error occurred:", error);
+        console.error("Error:", error);
+        res.status(500).json({ error: "Internal server error" });
     }
-}
+});
 
-main();
+app.listen(port, () => {
+    console.log(`Chatbot server running at http://localhost:${port}`);
+});
 ```
+
+### 2. The Frontend (`public/index.html`)
+
+Create a folder named `public` and inside it, create `index.html`. This will be our simple web interface.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Engine Chatbot</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .chat-container { width: 100%; max-width: 600px; background: white; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; height: 80vh; }
+        .chat-header { background: #007bff; color: white; padding: 15px; text-align: center; border-top-left-radius: 10px; border-top-right-radius: 10px; font-size: 1.2em; font-weight: bold; }
+        .chat-messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .message { max-width: 80%; padding: 10px 15px; border-radius: 20px; line-height: 1.4; }
+        .user-message { align-self: flex-end; background: #007bff; color: white; border-bottom-right-radius: 0; }
+        .bot-message { align-self: flex-start; background: #e9ecef; color: #333; border-bottom-left-radius: 0; }
+        .chat-input-area { display: flex; padding: 15px; border-top: 1px solid #ddd; }
+        .chat-input-area input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; font-size: 1em; }
+        .chat-input-area button { background: #007bff; color: white; border: none; padding: 10px 20px; margin-left: 10px; border-radius: 20px; cursor: pointer; font-size: 1em; }
+        .chat-input-area button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">🧠 Memory Engine Chatbot</div>
+        <div class="chat-messages" id="chat-messages">
+            <div class="message bot-message">Hello! I am a smart assistant with long-term memory. What's on your mind?</div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="user-input" placeholder="Type your message..." onkeypress="handleKeyPress(event)">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chat-messages');
+        const userInput = document.getElementById('user-input');
+
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            appendMessage(text, 'user-message');
+            userInput.value = '';
+
+            const loadingId = appendMessage('...', 'bot-message');
+
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+
+                const data = await response.json();
+                document.getElementById(loadingId).innerText = data.reply || data.error;
+            } catch (error) {
+                document.getElementById(loadingId).innerText = "Error connecting to the server.";
+            }
+        }
+
+        function appendMessage(text, className) {
+            const div = document.createElement('div');
+            div.className = `message ${className}`;
+            div.innerText = text;
+            const id = 'msg-' + Date.now();
+            div.id = id;
+            chatMessages.appendChild(div);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return id;
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') sendMessage();
+        }
+    </script>
+</body>
+</html>
+```
+
+### 3. Run Your App
+Start your server by running:
+```bash
+node server.js
+```
+Navigate to `http://localhost:3000` in your browser. Tell the bot a fact about yourself (e.g., *"My favorite language is JavaScript"*). Start a new session or refresh the page, and ask *"What is my favorite language?"*. The Memory Engine will dynamically retrieve it and answer seamlessly!
 
 ---
 
